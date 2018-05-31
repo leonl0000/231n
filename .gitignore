@@ -1,0 +1,7 @@
+*.gz
+*.7z
+
+# Don't sync training and test data
+data_numpy/train/*
+data_numpy/valid/*
+data_numpy/test/*
