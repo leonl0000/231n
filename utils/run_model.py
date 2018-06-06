@@ -51,12 +51,11 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
     init_lr = optimizer.param_groups[0]['lr']
     t = 0
     for e in range(epochs):
-        tnew = time()
+        toc = time()
         if e!= 0 and print_level >= 2:
-            print("Epoch time: %.2f minutes"%((tnew-t)/60))
-        t = tnew
-        for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):
-            
+            print("\nEpoch time: %.2f minutes"%((toc-tic)/60))
+        tic = toc
+        for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):            
             model.train()  # put model to training mode
             x1 = x1.to(device=device)  # move to device, e.g. GPU
             y = y.to(device=device)
