@@ -4,19 +4,38 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F 
 
-from utils.tavr_torch import get_mean_slice, get_mew_slice
+from utils.tavr_torch import get_mean_slice, get_mew_slice, get_mean_pixel, get_mew_pixel
 
 class average_model(nn.Module):
     def forward(self, X):
         x1, x2 = X
         return (x1 + x2)/ 2
+    
+class post_process(nn.Module):
+    def __init__(self, kind="pixel"):
+        super(post_process, self).__init__()
+        if kind=="pixel":
+            self.mean = get_mean_pixel()
+            self.mew = get_mew_pixel()
+        elif kind=="slice":
+            self.mean = get_mean_slice() 
+            self.mew = data=get_mew_slice() 
+        else:
+            self.mean = torch.zeros(1)
+            self.mew = torch.ones(1)
+    
+    def forward(self, x):
+        if self.training:
+            return x
+        else:
+            return x * self.mew + self.mean
 
 
 class two_layer_basic(nn.Module):
     def __init__(self, a_layers=[8],
                         b_layers=[8], 
                         ab_layers=[1],
-                        standardize_slice=False, device='cpu'):
+                        postprocessing="None"):
         super().__init__()
         self.conv_a1 = nn.Conv3d(1, 8, 3, padding=1)
         self.conv_b1 = nn.Conv3d(1, 8, 3, padding=1)
@@ -25,17 +44,10 @@ class two_layer_basic(nn.Module):
         nn.init.kaiming_normal_(self.conv_b1.weight)
         nn.init.kaiming_normal_(self.final.weight)
         
-        self.standardize_slice = standardize_slice
-        if standardize_slice:
-            self.mean = get_mean_slice().to(device=device)
-            self.mew = get_mew_slice().to(device=device)
+        self.post_proc = post_process(postprocessing)
     
     def forward(self, x):
         x1, x2 = x
-        
-        if self.standardize_slice:
-            x1 = (x1 - self.mean)/self.mew
-            x2 = (x2 - self.mean)/self.mew
             
         a0 = x1[:,None,:,:,:]
         b0 = x2[:,None,:,:,:]
@@ -43,8 +55,5 @@ class two_layer_basic(nn.Module):
         b1 = F.relu(self.conv_b1(b0))
         ab = torch.cat((a1, b1), 1)
         y_hat = self.final(ab)
-        
-        if self.standardize_slice:
-            y_hat = (y_hat * self.mew) + self.mean
-        
+        y_hat = self.post_proc(y_hat)
         return y_hat

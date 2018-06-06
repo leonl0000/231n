@@ -19,7 +19,7 @@ def test(model, loader, loss_fn, device):
         total_frames = 0
         for t, (x1, y, x2, mask, max_z) in enumerate(loader):
             x1 = x1.to(device=device)  # move to device, e.g. GPU
-            y = y.to(device=device)
+            y = model.post_proc(y.to(device=device))
             x2 = x2.to(device=device)
             mask = mask.to(device=device)
             max_z = max_z.to(device=device)
@@ -87,24 +87,29 @@ def train(model, optimizer, train_loader, val_loader, loss_fn, device,
             optimizer.param_groups[0]['lr'] = init_lr * lr_decay ** (e + t/len(train_loader))
             optimizer.step()
             
-            if print_level >= 1:
-                if t % print_every == 0:
-                    print('\n' + ('****Epoch %d ' % e) * (t==0) + 'Iteration %d, loss = %.4f' % (t, loss.item()))
-                    test(model, val_loader, loss_fn, device)
-                    if print_level >= 3:
-                        with torch.no_grad():
+            with torch.no_grad():
+                if print_level >= 1:
+                    if t % print_every == 0:
+                        model.eval()
+                        c_y_hat = model((x1, x2))
+                        c_y = model.post_proc(y)
+                        c_loss = loss_fn((c_y, c_y_hat, mask, max_z))
+                        print('\n' + ('****Epoch %d ' % e) * (t==0) + 'Iteration %d, loss = %.4f, corrected loss = %.4f' %\
+                              (t, loss.item(), c_loss.item()))
+                        test(model, val_loader, loss_fn, device)
+                        if print_level >= 3:
                             for name, param in model.named_parameters():  
                                 if param.requires_grad:   
                                     pnorm = sd_copy[name].norm().item()
                                     update_norm = (param - sd_copy[name]).norm().item()
                                     print("%s,   \tnorm: %.4e, \tupdate norm: %.4e \tUpdate/norm: %.4e"%
                                           (name, pnorm, update_norm, update_norm/pnorm))
-                    printw("\nIter %d"%t)
-                elif print_level >= 2:
-                    if t%10 == 0:
                         printw("\nIter %d"%t)
-                    elif (t%10)%3 == 0:
-                        printw(". ")
-                    else:
-                        printw(".")
+                    elif print_level >= 2:
+                        if t%10 == 0:
+                            printw("\nIter %d"%t)
+                        elif (t%10)%3 == 0:
+                            printw(". ")
+                        else:
+                            printw(".")
                 
