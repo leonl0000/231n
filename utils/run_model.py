@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F 
 import sys
+from time import time
 
 def printw(s):
     sys.stdout.write(s)
@@ -41,14 +42,18 @@ def train(model, optimizer, train_loader, val_loader, loss_fn, device,
     """
         Print levels:
             1. only every print_every
-            2. Each iteration, print the iteration number (if mod 10 = 0) or '.' (if mod 10 !=0)
-            3. On every print_every, print the norm, gradnorm, and update to norm ratios
+            2. Each iteration, print the iteration number (if mod 10 = 0) or '.' (if mod 10 !=0) & epoch time
+            3. On every print_every, print the norm, gradnorm, and update/norm ratios
     """
     
     
     model = model.to(device=device)  # move the model parameters to CPU/GPU
     init_lr = optimizer.param_groups[0]['lr']
+    t = 0
     for e in range(epochs):
+        tnew = time()
+        if e!= 0 and print_level >= 2:
+            print("Epoch time: %.2f minutes"%((tnew-t)/60))
         for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):
             
             model.train()  # put model to training mode
