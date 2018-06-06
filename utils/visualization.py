@@ -33,3 +33,11 @@ def visualize_frame(frame):
     x3 = z_stretch(frame[:,:,3*W//4])
     slices = [z1, z2, z3, y1, y2, y3, x1, x2, x3]
     display_grid(3,3,slices)
+    
+def get_central_slices(frame):
+    H, L, W = frame.shape
+    z = frame[H//2,:,:]
+    y = z_stretch(frame[:,L//2,:])
+    x = z_stretch(frame[:,:,W//2])
+    return z,x,y
+    
