@@ -54,6 +54,7 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
         tnew = time()
         if e!= 0 and print_level >= 2:
             print("Epoch time: %.2f minutes"%((tnew-t)/60))
+        t = tnew
         for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):
             
             model.train()  # put model to training mode
