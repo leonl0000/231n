@@ -33,6 +33,12 @@ data_dirs = {'__train': train_dir, '__val': valid_dir, '__valid':valid_dir,
     
 def basic_transform(a):
     return torch.tensor(a)
+
+def center_transform(a, mean, mew):
+    return torch.tensor((a-mean)/mew)
+
+def uncenter_transform(a, mean, mew):
+    return a*mew + mean
     
 class TAVR_3_Frame(Dataset):
     """
@@ -40,7 +46,7 @@ class TAVR_3_Frame(Dataset):
     """
     def __init__(self,
                  root,
-                 transform=basic_transform,
+                 preproc=None,
                  preload=False):
         """
         Args:
@@ -74,7 +80,19 @@ class TAVR_3_Frame(Dataset):
         self.filenames = []
         self.frames = None
         
-        self.transform = transform
+        if preproc is None:
+            self.transform = basic_transform
+        elif preproc == "slice":
+            self.mean = get_mean_slice()
+            self.mew = get_mew_slice()
+            self.transform = lambda x: center_transform(x, self.mean, self.mew)
+            self._untransform = lambda x: uncenter_transform(x, self.mean, self.mew)
+        elif preproc == "pixel":
+            self.mean = get_mean_pixel()
+            self.mew = get_mew_pixel()
+            self.transform = lambda x: center_transform(x, self.mean, self.mew)
+            self._untransform = lambda x: uncenter_transform(x, self.mean, self.mew)
+        
 
         # read filenames
         self.seriesnames = sorted([join(self.root, s) for s in listdir(self.root) if 'ZX' in s])
@@ -289,3 +307,10 @@ def get_mean_slice():
 
 def get_mew_slice():
     return torch.tensor(np.load(join(data_root_dir, "mew_slice.npy")))
+
+def get_mean_pixel():
+    return torch.tensor(np.load(join(data_root_dir, "mean_pixel.npy")))
+
+def get_mew_pixel():
+    return torch.tensor(np.load(join(data_root_dir, "mew_pixel.npy")))
+    
