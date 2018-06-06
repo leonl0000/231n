@@ -10,7 +10,7 @@ class two_layer_concat(nn.Module):
     def __init__(self, a_layers=[8],
                         b_layers=[8], 
                         ab_layers=[1],
-                        standardize_slice=False):
+                        standardize_slice=False, device='cpu'):
         super().__init__()
         self.conv_a1 = nn.Conv3d(1, 7, 3, padding=1)
         self.conv_b1 = nn.Conv3d(1, 7, 3, padding=1)
@@ -21,8 +21,8 @@ class two_layer_concat(nn.Module):
         
         self.standardize_slice = standardize_slice
         if standardize_slice:
-            self.mean = get_mean_slice()
-            self.mew = get_mew_slice()
+            self.mean = get_mean_slice().to(device=device)
+            self.mew = get_mew_slice().to(device=device)
     
     def forward(self, x):
         x1, x2 = x
