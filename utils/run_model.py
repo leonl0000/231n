@@ -12,14 +12,14 @@ def printw(s):
 
 #TODO: Implement model saving
 
-def test(model, loader, loss_fn, device):
+def test(model, post_proc, loader, loss_fn, device):
     with torch.no_grad():
         model.eval()  # set model to evaluation mode
         ave_loss = 0.
         total_frames = 0
         for t, (x1, y, x2, mask, max_z) in enumerate(loader):
             x1 = x1.to(device=device)  # move to device, e.g. GPU
-            y = model.post_proc(y.to(device=device))
+            y = post_proc(y.to(device=device))
             x2 = x2.to(device=device)
             mask = mask.to(device=device)
             max_z = max_z.to(device=device)
@@ -27,7 +27,7 @@ def test(model, loader, loss_fn, device):
             if t==0:
                 batch_size = x1.shape[0]
 
-            y_hat = model((x1, x2))
+            y_hat = post_proc(model((x1, x2)))
             loss = loss_fn((y, y_hat, mask, max_z))
             
             # Ensure equal weighting between batches of different size
@@ -37,7 +37,7 @@ def test(model, loader, loss_fn, device):
     return
 
 
-def train(model, optimizer, train_loader, val_loader, loss_fn, device,
+def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device,
           epochs=1, print_every=100, print_level=1, save_every=0, lr_decay=1):
     """
         Print levels:
@@ -91,12 +91,12 @@ def train(model, optimizer, train_loader, val_loader, loss_fn, device,
                 if print_level >= 1:
                     if t % print_every == 0:
                         model.eval()
-                        c_y_hat = model((x1, x2))
-                        c_y = model.post_proc(y)
+                        c_y = post_proc(y)
+                        c_y_hat = post_proc(model((x1, x2)))
                         c_loss = loss_fn((c_y, c_y_hat, mask, max_z))
                         print('\n' + ('****Epoch %d ' % e) * (t==0) + 'Iteration %d, loss = %.4f, corrected loss = %.4f' %\
                               (t, loss.item(), c_loss.item()))
-                        test(model, val_loader, loss_fn, device)
+                        test(model, post_proc, val_loader, loss_fn, device)
                         if print_level >= 3:
                             for name, param in model.named_parameters():  
                                 if param.requires_grad:   
