@@ -5,3 +5,5 @@
 data_numpy/train/*
 data_numpy/valid/*
 data_numpy/test/*
+
+*/__pycache__/*
