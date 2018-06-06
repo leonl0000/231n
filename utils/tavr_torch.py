@@ -80,8 +80,6 @@ class TAVR_3_Frame(Dataset):
         self.seriesnames = sorted([join(self.root, s) for s in listdir(self.root) if 'ZX' in s])
         self.filenames = [[join(s, f) for f in sorted(listdir(s), key=lambda x: int(x[:-4]))] for s in self.seriesnames]
         
-        # Since each item is 3 frames, the starting frame can be at most the third to last frame in a series
-        #   so, the total number of items is the count of all the frames except the last 2 in each series
         self.len = sum([len(s) for s in self.filenames]) - 2*len(self.filenames)
         for s_num in range(len(self.filenames)):
             for f_num in range(len(self.filenames[s_num]) - 2):
@@ -129,6 +127,65 @@ class TAVR_3_Frame(Dataset):
         return self.len
     
     
+class TAVR_Sequence(Dataset):
+    """
+    A customized data loader for the TAVR dataset from UKY
+    """
+    def __init__(self,
+                 root,
+                 transform=basic_transform,
+                 preload=False):
+        # See TAVR_3_Frame for details
+        if root in data_dirs:
+            root = data_dirs[root]       
+        self.root = root
+        self.seriesnames = []
+        self.itemIndex = []
+        self.filenames = []
+        self.frames = None
+        
+        self.transform = transform
+
+        # read filenames
+        self.seriesnames = sorted([join(self.root, s) for s in listdir(self.root) if 'ZX' in s])
+        # A list of file names for each series
+        self.filenames = [[join(s, f) for f in sorted(listdir(s), key=lambda x: int(x[:-4]))] for s in self.seriesnames]
+        
+        self.len = len(self.seriesnames)
+                
+        # if preload dataset into memory
+        if preload:
+            self._preload()
+                              
+    def _preload(self):
+        """
+        Preload dataset to memory
+        """
+        self.frames = [[np.load(f).astype(np.float32) for f in s] for s in self.filenames]
+
+    def __getitem__(self, index):
+        """ Get a series from the dataset
+        """
+        if self.frames is not None:
+            # If dataset is preloaded
+            S = self.frames[index]
+        else:
+            # If on-demand data loading
+            S = [np.load(f).astype(np.float32) for f in self.filenames[index]]
+            
+        # May use transform function to transform samples
+        # e.g., random crop, whitening
+        if self.transform is not None:
+            T = [self.transform(t) for t in S]
+            S = T
+        return S
+
+    def __len__(self):
+        """
+        Total number of samples in the dataset
+        """
+        return self.len
+    
 class TAVR_1_Frame(Dataset):
     """
     A customized data loader for the TAVR dataset from UKY
@@ -151,9 +208,7 @@ class TAVR_1_Frame(Dataset):
         # read filenames
         self.seriesnames = sorted([join(self.root, s) for s in listdir(self.root) if 'ZX' in s])
         self.filenames = [[join(s, f) for f in sorted(listdir(s), key=lambda x: int(x[:-4]))] for s in self.seriesnames]
-        
-        # Since each item is 3 frames, the starting frame can be at most the third to last frame in a series
-        #   so, the total number of items is the count of all the frames except the last 2 in each series
+
         self.len = sum([len(s) for s in self.filenames])
         for s_num in range(len(self.filenames)):
             for f_num in range(len(self.filenames[s_num])):
@@ -192,7 +247,8 @@ class TAVR_1_Frame(Dataset):
         """
         Total number of samples in the dataset
         """
-        return self.len
+        return self.len    
+
 
 def collator_3_frame(batch):
     shape = [len(batch), max([b[0].shape[0] for b in batch]),batch[0][0].shape[1], batch[0][0].shape[2]]
@@ -227,3 +283,9 @@ def tavr_dataloader(dset, **kwargs):
         kwargs['collate_fn'] = collator_3_frame if str(type(dset)) == "<class 'utils.tavr_torch.TAVR_3_Frame'>" \
                                 else collator_1_frame
     return DataLoader(dset, **kwargs)
+
+def get_mean_slice():
+    return torch.tensor(np.load(join(data_root_dir, "mean_slice.npy")))
+
+def get_mew_slice():
+    return torch.tensor(np.load(join(data_root_dir, "mew_slice.npy")))
