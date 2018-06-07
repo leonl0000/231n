@@ -80,7 +80,7 @@ class TAVR_3_Frame(Dataset):
         self.filenames = []
         self.frames = None
         
-        if preproc is None:
+        if preproc is "None":
             self.transform = basic_transform
         elif preproc == "slice":
             self.mean = get_mean_slice()
@@ -151,7 +151,7 @@ class TAVR_Sequence(Dataset):
     """
     def __init__(self,
                  root,
-                 transform=basic_transform,
+                 preproc='pixel',
                  preload=False):
         # See TAVR_3_Frame for details
         if root in data_dirs:
@@ -161,8 +161,20 @@ class TAVR_Sequence(Dataset):
         self.itemIndex = []
         self.filenames = []
         self.frames = None
+              
         
-        self.transform = transform
+        if preproc is "None":
+            self.transform = basic_transform
+        elif preproc == "slice":
+            self.mean = get_mean_slice()
+            self.mew = get_mew_slice()
+            self.transform = lambda x: center_transform(x, self.mean, self.mew)
+            self._untransform = lambda x: uncenter_transform(x, self.mean, self.mew)
+        elif preproc == "pixel":
+            self.mean = get_mean_pixel()
+            self.mew = get_mew_pixel()
+            self.transform = lambda x: center_transform(x, self.mean, self.mew)
+            self._untransform = lambda x: uncenter_transform(x, self.mean, self.mew)
 
         # read filenames
         self.seriesnames = sorted([join(self.root, s) for s in listdir(self.root) if 'ZX' in s])
