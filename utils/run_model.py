@@ -77,6 +77,7 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
             1. only every print_every
             2. Each iteration, print the iteration number (if mod 10 = 0) or '.' (if mod 10 !=0) & epoch time
             3. On every print_every, print the norm, gradnorm, and update/norm ratios
+            4. Every 3 iterations, print the loss inline
     """
     
     
@@ -99,7 +100,7 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
         loss_history['epoch'] = original_e + e
         toc = time()
         if e!= 0 and print_level >= 2:
-            print("(Epoch time: %.2f minutes. Total epochs: %d)"%((toc-tic)/60), loss_history['epoch'])
+            print("(Epoch time: %.2f minutes. Total epochs: %d)"%((toc-tic)/60, loss_history['epoch']))
         tic = toc
         
         for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):   
@@ -164,6 +165,8 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
                         printw("\nIter %d"%loss_history['iteration'])
                     elif (loss_history['iteration']%10)%3 == 0:
                         printw(". ")
+                        if print_level >=4:
+                            printw("%.4f"%loss.item())
                     else:
                         printw(".")
                 loss_history['iteration'] += 1

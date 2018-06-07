@@ -51,6 +51,7 @@ class two_layer_basic(nn.Module):
         y_hat = self.final(ab)
         return y_hat
 
+    
 class two_d_basic(nn.Module):
     def __init__(self, a_layers=[8],
                         b_layers=[8],
@@ -65,10 +66,13 @@ class two_d_basic(nn.Module):
     
     def forward(self, x):
         x1, x2 = x
-        a0 = x1[:,None,:,:,:]
-        b0 = x2[:,None,:,:,:]
+        N, Z, Y, X = x1.shape
+        x1 = x1.view(-1, X, Y)
+        x2 = x2.view(-1, X, Y)
+        a0 = x1[:,None,:,:]
+        b0 = x2[:,None,:,:]
         a1 = F.relu(self.conv_a1(a0))
         b1 = F.relu(self.conv_b1(b0))
         ab = torch.cat((a1, b1), 1)
         y_hat = self.final(ab)
-        return y_hat
+        return y_hat.view(N, Z, Y, X)
