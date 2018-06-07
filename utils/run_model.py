@@ -124,9 +124,9 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
             
             # Print the params and grads
             # Store old params
-            if loss_history['iteration'] % print_every == 0 and print_level >= 3:
-                sd_copy = {}
-                with torch.no_grad():
+            with torch.no_grad():
+                if loss_history['iteration'] % print_every == 0 and print_level >= 3:
+                    sd_copy = {}
                     for n, p in model.named_parameters():
                         sd_copy[n] = torch.tensor(p)
 
@@ -135,9 +135,8 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
             optimizer.param_groups[0]['lr'] = init_lr * lr_decay ** (e + t/len(train_loader))
             optimizer.step()
             
-            loss_history['train'].append(loss.item())
-            
             with torch.no_grad():
+                loss_history['train'].append(loss.item())
                 if loss_history['iteration'] % print_every == 0:
                     model.eval()
                     c_y = post_proc(y)
