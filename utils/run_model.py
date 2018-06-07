@@ -6,6 +6,38 @@ import torch.nn.functional as F
 import sys
 from time import time
 
+import os
+from os import listdir, mkdir
+from os.path import join, isdir
+
+save_dir = "model_checkpoints"
+
+def save(model_name, iteration,
+             model, optimizer, loss_history=None):
+    if not isdir(join(save_dir, model_name)):
+        mkdir(join(save_dir, model_name))
+    state = {'state_dict': model.state_dict(),
+             'optimizer' : optimizer.state_dict()}
+    save_to = join(save_dir, model_name, "%s-%d"%(model_name, iteration))
+    torch.save(state, save_to)
+    if loss_history:
+        torch.save(loss_history, join(save_dir, model_name, "loss"))
+    print('model saved to %s' % save_to)
+
+def load(model_name, iteration,
+             model, optimizer):
+    save_to = join(save_dir, model_name, "%s-%d"%(model_name, iteration))
+    state = torch.load(save_to)
+    model.load_state_dict(state['state_dict'])
+    optimizer.load_state_dict(state['optimizer'])
+    print('model loaded from %s' % save_to)
+    
+def get_loss_history(model_name):
+    return torch.load(join(save_dir, model_name, "loss"))
+    
+    
+    
+
 def printw(s):
     sys.stdout.write(s)
     sys.stdout.flush()
@@ -26,19 +58,20 @@ def test(model, post_proc, loader, loss_fn, device):
             
             if t==0:
                 batch_size = x1.shape[0]
-
-            y_hat = post_proc(model((x1, x2)))
+            y_hat = model((x1, x2))
+            y_hat = post_proc(y_hat)
             loss = loss_fn((y, y_hat, mask, max_z))
             
             # Ensure equal weighting between batches of different size
             ave_loss += loss * x1.shape[0] / batch_size / len(loader)
             total_frames += x1.shape[0]
         print("Validation loss %.4f over %d frames" % (ave_loss, total_frames))           
-    return
+    return ave_loss
 
 
-def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device,
-          epochs=1, print_every=100, print_level=1, save_every=0, lr_decay=1):
+def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device, 
+          model_name, loss_history=None,
+          epochs=1, print_every=30, print_level=1, lr_decay=1):
     """
         Print levels:
             1. only every print_every
@@ -49,17 +82,27 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
     
     model = model.to(device=device)  # move the model parameters to CPU/GPU
     init_lr = optimizer.param_groups[0]['lr']
+    if loss_history is None:
+        loss_history = {
+            'train': [],
+            'train_c': [],
+            'valid': [],
+            'epoch': 0,
+            'iteration': 0,
+            'print_every': print_every}   
+    if loss_history['print_every'] != print_every:
+        print("Warning: print_every changed at iteration %d, %dth in the list"%(loss_history['iteration'], len(loss_history['valid'])))
+        loss_history['print_every'] = print_every
+    original_e = loss_history['epoch']
+    
     for e in range(epochs):
+        loss_history['epoch'] = original_e + e
         toc = time()
         if e!= 0 and print_level >= 2:
-            print("\nEpoch time: %.2f minutes"%((toc-tic)/60))
+            print("(Epoch time: %.2f minutes. Total epochs: %d)"%((toc-tic)/60), loss_history['epoch'])
         tic = toc
-<<<<<<< HEAD
-        for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):
-            
-=======
-        for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):            
->>>>>>> f63ac447c92c9f52e567dab2c183de3ec5360c1b
+        
+        for t, (x1, y, x2, mask, max_z) in enumerate(train_loader):   
             model.train()  # put model to training mode
             x1 = x1.to(device=device)  # move to device, e.g. GPU
             y = y.to(device=device)
@@ -80,7 +123,7 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
             
             # Print the params and grads
             # Store old params
-            if t % print_every == 0 and print_level >= 3:
+            if loss_history['iteration'] % print_every == 0 and print_level >= 3:
                 sd_copy = {}
                 with torch.no_grad():
                     for n, p in model.named_parameters():
@@ -91,29 +134,43 @@ def train(model, post_proc, optimizer, train_loader, val_loader, loss_fn, device
             optimizer.param_groups[0]['lr'] = init_lr * lr_decay ** (e + t/len(train_loader))
             optimizer.step()
             
+            loss_history['train'].append(loss.item())
+            
             with torch.no_grad():
-                if print_level >= 1:
-                    if t % print_every == 0:
-                        model.eval()
-                        c_y = post_proc(y)
-                        c_y_hat = post_proc(model((x1, x2)))
-                        c_loss = loss_fn((c_y, c_y_hat, mask, max_z))
-                        print('\n' + ('****Epoch %d ' % e) * (t==0) + 'Iteration %d, loss = %.4f, corrected loss = %.4f' %\
-                              (t, loss.item(), c_loss.item()))
-                        test(model, post_proc, val_loader, loss_fn, device)
-                        if print_level >= 3:
-                            for name, param in model.named_parameters():  
-                                if param.requires_grad:   
-                                    pnorm = sd_copy[name].norm().item()
-                                    update_norm = (param - sd_copy[name]).norm().item()
-                                    print("%s,   \tnorm: %.4e, \tupdate norm: %.4e \tUpdate/norm: %.4e"%
-                                          (name, pnorm, update_norm, update_norm/pnorm))
-                        printw("\nIter %d"%t)
-                    elif print_level >= 2:
-                        if t%10 == 0:
-                            printw("\nIter %d"%t)
-                        elif (t%10)%3 == 0:
-                            printw(". ")
-                        else:
-                            printw(".")
+                if loss_history['iteration'] % print_every == 0:
+                    model.eval()
+                    c_y = post_proc(y)
+                    c_y_hat = post_proc(y_hat)
+                    c_loss = loss_fn((c_y, c_y_hat, mask, max_z))
+                    print('\nIteration %d, loss = %.4f, corrected loss = %.4f' %\
+                          (loss_history['iteration'], loss.item(), c_loss.item()))
+                    loss_history['train_c'].append(c_loss.item())
+                    valid_loss = test(model, post_proc, val_loader, loss_fn, device)
+                    loss_history['valid'].append(valid_loss.item())
+                    if str(type(model))[-10:-2] == "Parallel":
+                        save(model_name, loss_history['iteration'], model.module, optimizer, loss_history)
+                    else:
+                        save(model_name, loss_history['iteration'], model, optimizer, loss_history)
+                    if print_level >= 3:
+                        for name, param in model.named_parameters():  
+                            if param.requires_grad:   
+                                pnorm = sd_copy[name].norm().item()
+                                update_norm = (param - sd_copy[name]).norm().item()
+                                print("%s,   \tnorm: %.4e, \tupdate norm: %.4e \tUpdate/norm: %.4e"%
+                                      (name, pnorm, update_norm, update_norm/pnorm))
+                    print()
+                elif print_level >= 2:
+                    if loss_history['iteration']%10 == 0:
+                        printw("\nIter %d"%loss_history['iteration'])
+                    elif (loss_history['iteration']%10)%3 == 0:
+                        printw(". ")
+                    else:
+                        printw(".")
+                loss_history['iteration'] += 1
+        # Save at the end
+        print()
+        if str(type(model))[-10:-2] == "Parallel":
+            save(model_name, loss_history['iteration'], model.module, optimizer, loss_history)
+        else:
+            save(model_name, loss_history['iteration'], model, optimizer, loss_history)
                 

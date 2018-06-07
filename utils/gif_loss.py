@@ -49,4 +49,7 @@ def plot_loss(data, labels):
         temp, = plt.plot(col[i], linestyle = '-', marker = 'o', label = labels[i])
         patches.append(temp)
     plt.legend(handles = patches)
+    plt.title("Training Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
     plt.show()
