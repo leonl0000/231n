@@ -50,6 +50,7 @@ class two_layer_basic(nn.Module):
         ab = torch.cat((a1, b1), 1)
         y_hat = self.final(ab)
         return y_hat
+
     
 class two_d_basic(nn.Module):
     def __init__(self, a_layers=[8],
@@ -75,7 +76,7 @@ class two_d_basic(nn.Module):
         ab = torch.cat((a1, b1), 1)
         y_hat = self.final(ab)
         return y_hat.view(N, Z, Y, X)
-    
+
 class two_d_two_layer(nn.Module):
     def __init__(self, a_layers=[8],
                         b_layers=[8],
