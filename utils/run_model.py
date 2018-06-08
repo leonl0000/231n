@@ -42,7 +42,6 @@ def printw(s):
     sys.stdout.write(s)
     sys.stdout.flush()
 
-#TODO: Implement model saving
 
 def test(model, post_proc, loader, loss_fn, device):
     with torch.no_grad():
@@ -65,6 +64,35 @@ def test(model, post_proc, loader, loss_fn, device):
             # Ensure equal weighting between batches of different size
             ave_loss += loss * x1.shape[0] / batch_size / len(loader)
             total_frames += x1.shape[0]
+        print("Validation loss %.4f over %d frames" % (ave_loss, total_frames))           
+    return ave_loss
+
+def batch_invariant_l2_test(model, post_proc, loader, loss_fn, device):
+    with torch.no_grad():
+        model.eval()  # set model to evaluation mode
+        ave_loss = 0.
+        total_frames = 0
+        running_weight = 0.
+        for t, (x1, y, x2, mask, max_z) in enumerate(loader):
+            x1 = x1.to(device=device)  # move to device, e.g. GPU
+            y = post_proc(y.to(device=device))
+            x2 = x2.to(device=device)
+            mask = mask.to(device=device)
+            max_z = max_z.to(device=device)
+            weight = max_z.sum().sqrt()
+            running_weight += weight
+            
+            
+            if t==0:
+                batch_size = x1.shape[0]
+            y_hat = model((x1, x2))
+            y_hat = post_proc(y_hat)
+            loss = loss_fn((y, y_hat, mask, max_z))
+            
+            # Ensure equal weighting between batches of different size
+            ave_loss += loss * weight* x1.shape[0] / batch_size / len(loader)
+            total_frames += x1.shape[0]
+        ave_loss /= running_weight
         print("Validation loss %.4f over %d frames" % (ave_loss, total_frames))           
     return ave_loss
 
