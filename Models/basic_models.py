@@ -75,3 +75,84 @@ class two_d_basic(nn.Module):
         ab = torch.cat((a1, b1), 1)
         y_hat = self.final(ab)
         return y_hat.view(N, Z, Y, X)
+    
+class two_d_two_layer(nn.Module):
+    def __init__(self, a_layers=[8],
+                        b_layers=[8],
+                        ab_layers=[1]):
+        super().__init__()
+        self.conv_a1 = nn.Conv2d(1, 8, 5, padding=2)
+        self.conv_b1 = nn.Conv2d(1, 8, 5, padding=2)
+        self.conv_a2 = nn.Conv2d(8, 8, 3, padding=1)
+        self.conv_b2 = nn.Conv2d(8, 8, 3, padding=1)
+        self.final = nn.Conv2d(16, 1, 1)
+        nn.init.kaiming_normal_(self.conv_a1.weight)
+        nn.init.kaiming_normal_(self.conv_b1.weight)
+        nn.init.kaiming_normal_(self.conv_a2.weight)
+        nn.init.kaiming_normal_(self.conv_b2.weight)
+        nn.init.kaiming_normal_(self.final.weight)
+    
+    def forward(self, x):
+        x1, x2 = x
+        N, Z, Y, X = x1.shape
+        x1 = x1.view(-1, X, Y)
+        x2 = x2.view(-1, X, Y)
+        a0 = x1[:,None,:,:]
+        b0 = x2[:,None,:,:]
+        
+        a1 = F.relu(self.conv_a1(a0))
+        b1 = F.relu(self.conv_b1(b0))
+        
+        a2 = F.relu(self.conv_a2(a1))
+        b2 = F.relu(self.conv_b2(b1))
+        
+        ab = torch.cat((a2, b2), 1)
+        y_hat = self.final(ab)
+        return y_hat.view(N, Z, Y, X)
+        
+class two_d_three_layer(nn.Module):
+    def __init__(self, a_layers=[8],
+                        b_layers=[8],
+                        ab_layers=[1]):
+        super().__init__()
+        
+        self.conv_a1 = nn.Conv2d(1, 8, 5, padding=2)
+        self.conv_b1 = nn.Conv2d(1, 8, 5, padding=2)
+        
+        self.conv_a2 = nn.Conv2d(8, 8, 3, padding=1)
+        self.conv_b2 = nn.Conv2d(8, 8, 3, padding=1)
+        
+        self.conv_a3 = nn.Conv2d(8, 8, 3, padding=1)
+        self.conv_b3 = nn.Conv2d(8, 8, 3, padding=1)
+        self.final = nn.Conv2d(16, 1, 1)
+        
+        nn.init.kaiming_normal_(self.conv_a1.weight)
+        nn.init.kaiming_normal_(self.conv_b1.weight)
+        
+        nn.init.kaiming_normal_(self.conv_a2.weight)
+        nn.init.kaiming_normal_(self.conv_b2.weight)
+        
+        nn.init.kaiming_normal_(self.conv_a3.weight)
+        nn.init.kaiming_normal_(self.conv_b3.weight)
+        nn.init.kaiming_normal_(self.final.weight)
+    
+    def forward(self, x):
+        x1, x2 = x
+        N, Z, Y, X = x1.shape
+        x1 = x1.view(-1, X, Y)
+        x2 = x2.view(-1, X, Y)
+        a0 = x1[:,None,:,:]
+        b0 = x2[:,None,:,:]
+        
+        a1 = F.relu(self.conv_a1(a0))
+        b1 = F.relu(self.conv_b1(b0))
+        
+        a2 = F.relu(self.conv_a2(a1))
+        b2 = F.relu(self.conv_b2(b1))
+        
+        a3 = F.relu(self.conv_a3(a2))
+        b3 = F.relu(self.conv_b3(b2))
+        
+        ab = torch.cat((a3, b3), 1)
+        y_hat = self.final(ab)
+        return y_hat.view(N, Z, Y, X)
