@@ -25,9 +25,15 @@ def save(model_name, iteration,
     print('model saved to %s' % save_to)
 
 def load(model_name, iteration,
-             model, optimizer):
+             model, optimizer, map_location=None):
     save_to = join(save_dir, model_name, "%s-%d"%(model_name, iteration))
-    state = torch.load(save_to)
+    if map_location != None:
+        state = torch.load(save_to, map_location=map_location)
+    else:
+        state = torch.load(save_to)
+#     if device != None:
+#         for key, v in state['state_dict'].items():
+#             state['state_dict'][key] = v.to(device=device)
     model.load_state_dict(state['state_dict'])
     optimizer.load_state_dict(state['optimizer'])
     print('model loaded from %s' % save_to)
@@ -43,10 +49,34 @@ def printw(s):
     sys.stdout.flush()
 
 
+# def test(model, post_proc, loader, loss_fn, device):
+#     with torch.no_grad():
+#         model.eval()  # set model to evaluation mode
+#         ave_loss = 0.
+#         total_frames = 0
+#         for t, (x1, y, x2, mask, max_z) in enumerate(loader):
+#             x1 = x1.to(device=device)  # move to device, e.g. GPU
+#             y = post_proc(y.to(device=device))
+#             x2 = x2.to(device=device)
+#             mask = mask.to(device=device)
+#             max_z = max_z.to(device=device)
+            
+#             if t==0:
+#                 batch_size = x1.shape[0]
+#             y_hat = model((x1, x2))
+#             y_hat = post_proc(y_hat)
+#             loss = loss_fn((y, y_hat, mask, max_z))
+            
+#             # Ensure equal weighting between batches of different size
+#             ave_loss += loss * x1.shape[0] / batch_size / len(loader)
+#             total_frames += x1.shape[0]
+#         print("Validation loss %.4f over %d frames" % (ave_loss, total_frames))           
+#     return ave_loss
+
 def test(model, post_proc, loader, loss_fn, device):
     with torch.no_grad():
         model.eval()  # set model to evaluation mode
-        ave_loss = 0.
+        losses = []
         total_frames = 0
         for t, (x1, y, x2, mask, max_z) in enumerate(loader):
             x1 = x1.to(device=device)  # move to device, e.g. GPU
@@ -55,44 +85,11 @@ def test(model, post_proc, loader, loss_fn, device):
             mask = mask.to(device=device)
             max_z = max_z.to(device=device)
             
-            if t==0:
-                batch_size = x1.shape[0]
-            y_hat = model((x1, x2))
-            y_hat = post_proc(y_hat)
-            loss = loss_fn((y, y_hat, mask, max_z))
-            
-            # Ensure equal weighting between batches of different size
-            ave_loss += loss * x1.shape[0] / batch_size / len(loader)
+            y_hat = post_proc(model((x1, x2)))
+            losses.append(loss_fn.f1((y, y_hat, mask, max_z)))
             total_frames += x1.shape[0]
-        print("Validation loss %.4f over %d frames" % (ave_loss, total_frames))           
-    return ave_loss
-
-def batch_invariant_l2_test(model, post_proc, loader, loss_fn, device):
-    with torch.no_grad():
-        model.eval()  # set model to evaluation mode
-        ave_loss = 0.
-        total_frames = 0
-        running_weight = 0.
-        for t, (x1, y, x2, mask, max_z) in enumerate(loader):
-            x1 = x1.to(device=device)  # move to device, e.g. GPU
-            y = post_proc(y.to(device=device))
-            x2 = x2.to(device=device)
-            mask = mask.to(device=device)
-            max_z = max_z.to(device=device)
-            weight = max_z.sum().sqrt()
-            running_weight += weight
             
-            
-            if t==0:
-                batch_size = x1.shape[0]
-            y_hat = model((x1, x2))
-            y_hat = post_proc(y_hat)
-            loss = loss_fn((y, y_hat, mask, max_z))
-            
-            # Ensure equal weighting between batches of different size
-            ave_loss += loss * weight* x1.shape[0] / batch_size / len(loader)
-            total_frames += x1.shape[0]
-        ave_loss /= running_weight
+        ave_loss = loss_fn.f2(losses)
         print("Validation loss %.4f over %d frames" % (ave_loss, total_frames))           
     return ave_loss
 
