@@ -38,6 +38,17 @@ def load(model_name, iteration,
     optimizer.load_state_dict(state['optimizer'])
     print('model loaded from %s' % save_to)
     
+def load_model(model_name, iteration, model, map_location='cpu'):
+    save_to = join(save_dir, model_name, "%s-%d"%(model_name, iteration))
+    if map_location != None:
+        state = torch.load(save_to, map_location=map_location)
+    else:
+        state = torch.load(save_to)
+    model.load_state_dict(state['state_dict'])
+    print('model loaded from %s' % save_to)
+    
+    
+    
 def get_loss_history(model_name):
     return torch.load(join(save_dir, model_name, "loss"))
     

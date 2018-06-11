@@ -4,15 +4,17 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import imageio #for writing the gifs
 import numpy as np
+from os.path import join, isdir
 
 # matplotlib.use('Agg') #Prevents windows from immediately forming, will this be an issue for the rest of the notebook?
 
 def make_gif(sequence, filename = 'ani', all_axes = False, fps = 3):
-    N, H, L, W = sequence[0].shape
+    N = len(sequence)
+    H, L, W = sequence[0].shape
     if not all_axes:
         images = []
         for i in range(N):
-            name = 'vis_trash/fig' + str(i)
+            name = join('vis_trash', 'fig' + str(i))
             frame = sequence[i]
             plt.imshow(frame[:, L//2, :]) #plot the image
             plt.savefig(name) #save the image
@@ -25,7 +27,7 @@ def make_gif(sequence, filename = 'ani', all_axes = False, fps = 3):
         names = ['x', 'y', 'z']
         for i in range(N):
             
-            name = 'vis_trash/fig' + str(i)
+            name = join('vis_trash', 'fig' + str(i))
             selection = sequence[i]
             frames = [
                 selection[L//2, :, :],
